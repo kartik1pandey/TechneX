@@ -1,0 +1,30 @@
+/* static/css/style.css */
+body {
+    background-color: #f3f4f6;
+    font-family: 'Arial', sans-serif;
+}
+
+/* Enhance table styling */
+table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+th, td {
+    padding: 8px;
+    text-align: left;
+}
+
+th {
+    background-color: #e5e7eb;
+    font-weight: 600;
+}
+
+tr:hover {
+    background-color: #f9fafb;
+}
+
+/* Optional: Add custom button hover effects */
+button:hover {
+    transition: background-color 0.3s ease;
+}
