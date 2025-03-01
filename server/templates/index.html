@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Sentiment Analyzer with Chatbot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/wordcloud2.js/1.1.0/wordcloud2.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="font-sans transition-colors duration-300">
+    <!-- Navbar -->
+    <nav class="p-4 sticky top-0 shadow-md z-10 bg-white dark:bg-gray-800">
+        <div class="container mx-auto flex justify-between items-center">
+            <a href="/" class="text-xl font-bold text-gray-800 dark:text-white">YT Sentiment Analyzer</a>
+            <div class="space-x-4 hidden md:flex">
+                <button id="darkModeToggle" class="text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white"><i class="fas fa-moon"></i></button>
+            </div>
+            <button class="md:hidden focus:outline-none text-gray-600 dark:text-gray-300" id="menuToggle">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+        <div id="mobileMenu" class="hidden md:hidden p-4 bg-white dark:bg-gray-800">
+            <button id="darkModeToggleMobile" class="block py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white"><i class="fas fa-moon"></i> Dark Mode</button>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="py-12 bg-gray-100 dark:bg-gray-900">
+        <div class="container mx-auto text-center">
+            <h1 class="text-4xl font-bold mb-4 text-gray-800 dark:text-white">Analyze YouTube Comments in Seconds</h1>
+            <p class="text-lg mb-6 text-gray-600 dark:text-gray-300">Get sentiment insights, key phrases, and chat with our bot!</p>
+            <form id="analyzeForm" class="max-w-lg mx-auto p-6 rounded-lg shadow-md bg-white dark:bg-gray-800">
+                <label for="video_url" class="block font-semibold mb-2 text-gray-800 dark:text-white">Enter YouTube Video URL:</label>
+                <input type="text" id="video_url" name="video_url" class="w-full p-2 border rounded mb-4 dark:bg-gray-700 dark:text-white" placeholder="e.g., https://www.youtube.com/watch?v=dQw4w9WgXcQ" required>
+                <button type="submit" class="w-full bg-blue-600 text-white p-2 rounded flex items-center justify-center hover:bg-blue-700">
+                    <i class="fas fa-search mr-2"></i> Analyze
+                </button>
+            </form>
+        </div>
+    </section>
+
+    <!-- Results Section with Skeleton Loader -->
+    <section id="results" class="hidden mt-6 container mx-auto">
+        <div class="p-6 rounded-lg shadow-md bg-white dark:bg-gray-800 relative">
+            <!-- Skeleton Loader -->
+            <div id="resultsLoader" class="hidden absolute inset-0 bg-gray-100 dark:bg-gray-800 bg-opacity-75">
+                <div class="w-full max-w-3xl p-8">
+                    <div class="animate-pulse flex items-center space-x-6 mb-12">
+                        <div class="rounded-full bg-gray-300 dark:bg-gray-600 h-20 w-20"></div>
+                        <div class="flex-1 space-y-4">
+                            <div class="h-6 bg-gray-300 dark:bg-gray-600 rounded-lg w-3/4"></div>
+                            <div class="h-4 bg-gray-300 dark:bg-gray-600 rounded-lg w-1/2"></div>
+                        </div>
+                    </div>
+                    <div class="animate-pulse flex justify-between mb-12">
+                        <div class="h-32 w-32 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
+                        <div class="w-96 h-48 bg-gray-300 dark:bg-gray-600 rounded-lg"></div>
+                    </div>
+                    <div class="space-y-8">
+                        <div class="animate-pulse space-y-4">
+                            <div class="h-8 bg-gray-300 dark:bg-gray-600 rounded-lg w-1/4"></div>
+                            <div class="space-y-3">
+                                <div class="h-4 bg-gray-300 dark:bg-gray-600 rounded-lg"></div>
+                                <div class="h-4 bg-gray-300 dark:bg-gray-600 rounded-lg w-11/12"></div>
+                                <div class="h-4 bg-gray-300 dark:bg-gray-600 rounded-lg w-4/5"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <h2 class="text-2xl font-semibold mb-4 text-gray-800 dark:text-white">Analysis Results</h2>
+            <div class="flex justify-between mb-4">
+                <button id="downloadReport" class="bg-green-600 text-white p-2 rounded hover:bg-green-700"><i class="fas fa-download mr-2"></i> Download Report</button>
+                <select id="sentimentFilter" class="p-2 border rounded dark:bg-gray-700 dark:text-white">
+                    <option value="all">All Sentiments</option>
+                    <option value="positive">Positive</option>
+                    <option value="negative">Negative</option>
+                    <option value="neutral">Neutral</option>
+                </select>
+            </div>
+            <div id="summary" class="mb-4 text-gray-800 dark:text-gray-300"></div>
+            <canvas id="sentimentChart" class="mb-4"></canvas>
+            <div id="wordCloud" class="mb-4 h-64"></div>
+            <div id="keyPhrases" class="mb-4 text-gray-800 dark:text-gray-300"></div>
+            <div id="suggestions" class="mb-4 text-gray-800 dark:text-gray-300"></div>
+            <div id="commentsTable" class="overflow-x-auto"></div>
+
+            <!-- Chatbot Section -->
+            <div id="chatbotSection" class="mt-6">
+                <h3 class="text-xl font-semibold mb-2 text-gray-800 dark:text-white">Chatbot</h3>
+                <p class="text-gray-600 dark:text-gray-300 mb-2">Ask me anything about the video based on the summary!</p>
+                <div class="flex gap-2">
+                    <input type="text" id="chatbotInput" class="w-full p-2 border rounded dark:bg-gray-700 dark:text-white" placeholder="Type your question here...">
+                    <button id="chatbotButton" class="bg-blue-600 text-white p-2 rounded hover:bg-blue-700">Ask</button>
+                </div>
+                <div id="chatbotResponse" class="mt-4 text-gray-800 dark:text-gray-300"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- History Section -->
+    <section id="history" class="mt-6 container mx-auto">
+        <h2 class="text-2xl font-semibold mb-4 text-gray-800 dark:text-white">Analysis History</h2>
+        <div id="historyList" class="grid gap-4"></div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="py-6 mt-12 bg-gray-100 dark:bg-gray-900">
+        <div class="container mx-auto text-center">
+            <p class="text-sm text-gray-600 dark:text-gray-300">© 2025 YouTube Sentiment Analyzer.</p>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script>
+        // Dark Mode Toggle
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        const darkModeToggleMobile = document.getElementById('darkModeToggleMobile');
+        const menuToggle = document.getElementById('menuToggle');
+        const mobileMenu = document.getElementById('mobileMenu');
+
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+            localStorage.setItem('darkMode', document.documentElement.classList.contains('dark'));
+            updateWordCloudBackground();
+        }
+
+        darkModeToggle.addEventListener('click', toggleDarkMode);
+        darkModeToggleMobile.addEventListener('click', toggleDarkMode);
+        menuToggle.addEventListener('click', () => mobileMenu.classList.toggle('hidden'));
+
+        if (localStorage.getItem('darkMode') === 'true') {
+            document.documentElement.classList.add('dark');
+        }
+
+        // Analysis Form Submission
+        let analysisData = null;
+        let sentimentChart = null;
+
+        document.getElementById('analyzeForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            document.getElementById('results').classList.remove('hidden');
+            document.getElementById('resultsLoader').classList.remove('hidden');
+
+            const formData = new FormData(this);
+            fetch('/analyze', { method: 'POST', body: formData })
+                .then(response => {
+                    if (!response.ok) throw new Error('Analysis failed');
+                    return response.json();
+                })
+                .then(data => {
+                    analysisData = data;
+                    document.getElementById('resultsLoader').classList.add('hidden');
+
+                    // Render summary as HTML
+                    document.getElementById('summary').innerHTML = data.chatbot_summary || 'No summary available';
+
+                    // Sentiment Chart
+                    if (sentimentChart) sentimentChart.destroy();
+                    const ctx = document.getElementById('sentimentChart').getContext('2d');
+                    sentimentChart = new Chart(ctx, {
+                        type: 'pie',
+                        data: {
+                            labels: ['Positive', 'Negative', 'Neutral'],
+                            datasets: [{
+                                data: [data.summary.positive, data.summary.negative, data.summary.neutral],
+                                backgroundColor: ['#34D399', '#F87171', '#60A5FA']
+                            }]
+                        },
+                        options: { responsive: true }
+                    });
+
+                    // Word Cloud
+                    const wordCloudData = data.key_phrases.map(phrase => [phrase, Math.floor(Math.random() * 50) + 10]);
+                    WordCloud(document.getElementById('wordCloud'), {
+                        list: wordCloudData,
+                        gridSize: 16,
+                        weightFactor: 2,
+                        color: 'random-dark',
+                        backgroundColor: document.documentElement.classList.contains('dark') ? '#1F2937' : '#F3F4F6'
+                    });
+
+                    // Key Phrases & Suggestions
+                    document.getElementById('keyPhrases').innerHTML = `<strong>Top Negative Phrases:</strong> ${data.key_phrases.join(', ') || 'None detected'}`;
+                    document.getElementById('suggestions').innerHTML = `<strong>Suggestions:</strong> ${data.suggestions[0] || 'No suggestions'}`;
+
+                    // Comments Table
+                    updateCommentsTable(data.comments);
+
+                    // Add to History
+                    addToHistory(data.video_url);
+                })
+                .catch(error => {
+                    document.getElementById('resultsLoader').classList.add('hidden');
+                    alert('Error: ' + error.message);
+                });
+        });
+
+        // Sentiment Filter
+        document.getElementById('sentimentFilter').addEventListener('change', function() {
+            if (!analysisData) return;
+            const filter = this.value;
+            const filteredComments = filter === 'all' ? analysisData.comments : analysisData.comments.filter(c => c.sentiment_label === filter);
+            updateCommentsTable(filteredComments);
+        });
+
+        function updateCommentsTable(comments) {
+            const table = `
+                <table class="w-full text-left border-collapse">
+                    <thead><tr class="bg-gray-200 dark:bg-gray-700">
+                        <th class="p-2">Author</th><th class="p-2">Comment</th><th class="p-2">Sentiment</th><th class="p-2">Likes</th>
+                    </tr></thead>
+                    <tbody>${comments.slice(0, 10).map(c => `
+                        <tr class="border-b dark:border-gray-700">
+                            <td class="p-2">${c.author}</td>
+                            <td class="p-2">${c.text}</td>
+                            <td class="p-2">${c.sentiment_label}</td>
+                            <td class="p-2">${c.like_count}</td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>`;
+            document.getElementById('commentsTable').innerHTML = table;
+        }
+
+        // Chatbot Interaction
+        document.getElementById('chatbotButton').addEventListener('click', function() {
+            const userInput = document.getElementById('chatbotInput').value.trim();
+            if (!userInput || !analysisData) {
+                alert('Please enter a question and analyze a video first!');
+                return;
+            }
+
+            fetch('/chatbot', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chatbot_summary: analysisData.chatbot_summary, user_input: userInput })
+            })
+                .then(response => {
+                    if (!response.ok) throw new Error('Chatbot request failed');
+                    return response.json();
+                })
+                .then(data => {
+                    // Render chatbot response as HTML
+                    document.getElementById('chatbotResponse').innerHTML = data.response || 'No response from chatbot.';
+                })
+                .catch(error => alert('Error: ' + error.message));
+
+            document.getElementById('chatbotInput').value = '';
+        });
+
+        // Download Report
+        document.getElementById('downloadReport').addEventListener('click', function() {
+            if (!analysisData) return;
+            fetch('/download_report', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(analysisData)
+            })
+                .then(response => {
+                    if (!response.ok) throw new Error('PDF generation failed');
+                    return response.blob();
+                })
+                .then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'sentiment_report.pdf';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                })
+                .catch(error => alert('Error: ' + error.message));
+        });
+
+        // History Management
+        function addToHistory(url) {
+            const history = JSON.parse(localStorage.getItem('analysisHistory') || '[]');
+            if (!history.includes(url)) {
+                history.unshift(url);
+                localStorage.setItem('analysisHistory', JSON.stringify(history.slice(0, 5)));
+                updateHistoryList();
+            }
+        }
+
+        function updateHistoryList() {
+            const history = JSON.parse(localStorage.getItem('analysisHistory') || '[]');
+            document.getElementById('historyList').innerHTML = history.map(url => `
+                <div class="p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md">
+                    <a href="${url}" target="_blank" class="text-blue-600 dark:text-blue-400">${url}</a>
+                </div>`).join('');
+        }
+
+        // Update WordCloud background for dark mode
+        function updateWordCloudBackground() {
+            if (analysisData) {
+                const wordCloudData = analysisData.key_phrases.map(phrase => [phrase, Math.floor(Math.random() * 50) + 10]);
+                WordCloud(document.getElementById('wordCloud'), {
+                    list: wordCloudData,
+                    gridSize: 16,
+                    weightFactor: 2,
+                    color: 'random-dark',
+                    backgroundColor: document.documentElement.classList.contains('dark') ? '#1F2937' : '#F3F4F6'
+                });
+            }
+        }
+
+        // Load history on page load
+        updateHistoryList();
+    </script>
+</body>
+</html>
